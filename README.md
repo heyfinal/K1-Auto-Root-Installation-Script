@@ -122,3 +122,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 If this script helped you, please consider giving it a star on GitHub:
 [https://github.com/heyfinal/k1_full_auto_root_install](https://github.com/heyfinal/k1_full_auto_root_install)
+
+## Installation
+
+
