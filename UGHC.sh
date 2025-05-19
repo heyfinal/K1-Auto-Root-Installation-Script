@@ -1,22 +1,15 @@
 #!/bin/bash
 
-# UGRC - Universal GitHub Repository Creator
+# UGRC - Universal GitHub Repository Creator with GitHub CLI
 # Created by Claude for heyfinal
 # 
 # FEATURES:
 # - Password protected script launch
 # - Epic Top Gun theme music during execution
 # - Automatically detects project files in current directory
-# - Parses README.md for repository name and description
+# - Uses GitHub CLI for reliable authentication
 # - Creates and populates GitHub repository
 # - Generates one-liner installation command if applicable
-
-# GitHub credentials - SECURED BY PASSWORD
-GITHUB_USERNAME="heyfinal"
-GITHUB_PASSWORD="Littles2023!"
-
-# MIDI music source (Top Gun Anthem)
-TOP_GUN_MIDI="https://bitmidi.com/uploads/73426.mid"
 
 # Text colors
 RED='\033[0;31m'
@@ -27,30 +20,219 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+# MIDI music sources (with multiple fallback options)
+TOP_GUN_MIDI="https://storage.googleapis.com/heyfinal-public/topgun.mid"
+BACKUP_MIDI_1="https://bitmidi.com/uploads/73426.mid"
+BACKUP_MIDI_2="https://www.midiworld.com/download/4167"
+
+# Function to detect OS and install packages
+auto_install_dependencies() {
+    # Detect operating system
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux installation
+        
+        # Check for apt (Debian, Ubuntu, etc.)
+        if command -v apt-get &> /dev/null; then
+            echo -e "${YELLOW}Detected Debian/Ubuntu-based system. Installing dependencies...${NC}"
+            sudo apt-get update
+            
+            # Install curl if needed
+            if ! command -v curl &> /dev/null; then
+                sudo apt-get install -y curl
+            fi
+            
+            # Install GitHub CLI
+            if ! command -v gh &> /dev/null; then
+                echo -e "${YELLOW}Installing GitHub CLI...${NC}"
+                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+                echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+                sudo apt-get update
+                sudo apt-get install -y gh
+            fi
+            
+            # Install TiMidity++
+            if ! command -v timidity &> /dev/null; then
+                echo -e "${YELLOW}Installing TiMidity++...${NC}"
+                sudo apt-get install -y timidity timidity-daemon
+            fi
+            
+            # Start TiMidity daemon
+            echo -e "${GREEN}Starting TiMidity daemon...${NC}"
+            if command -v systemctl &> /dev/null && systemctl is-active --quiet timidity.service; then
+                sudo systemctl restart timidity
+            else
+                timidity -iA -Os &>/dev/null &
+            fi
+            sleep 2
+            
+        # Check for dnf (Fedora, RHEL, etc.)
+        elif command -v dnf &> /dev/null; then
+            echo -e "${YELLOW}Detected Fedora/RHEL-based system. Installing dependencies...${NC}"
+            
+            # Install curl if needed
+            if ! command -v curl &> /dev/null; then
+                sudo dnf install -y curl
+            fi
+            
+            # Install GitHub CLI
+            if ! command -v gh &> /dev/null; then
+                echo -e "${YELLOW}Installing GitHub CLI...${NC}"
+                sudo dnf install -y 'dnf-command(config-manager)'
+                sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+                sudo dnf install -y gh
+            fi
+            
+            # Install TiMidity++
+            if ! command -v timidity &> /dev/null; then
+                echo -e "${YELLOW}Installing TiMidity++...${NC}"
+                sudo dnf install -y timidity++
+            fi
+            
+            # Start TiMidity daemon
+            echo -e "${GREEN}Starting TiMidity daemon...${NC}"
+            timidity -iA -Os &>/dev/null &
+            sleep 2
+            
+        # Check for pacman (Arch Linux)
+        elif command -v pacman &> /dev/null; then
+            echo -e "${YELLOW}Detected Arch-based system. Installing dependencies...${NC}"
+            
+            # Install curl if needed
+            if ! command -v curl &> /dev/null; then
+                sudo pacman -Sy --noconfirm curl
+            fi
+            
+            # Install GitHub CLI
+            if ! command -v gh &> /dev/null; then
+                echo -e "${YELLOW}Installing GitHub CLI...${NC}"
+                sudo pacman -Sy --noconfirm github-cli
+            fi
+            
+            # Install TiMidity++
+            if ! command -v timidity &> /dev/null; then
+                echo -e "${YELLOW}Installing TiMidity++...${NC}"
+                sudo pacman -Sy --noconfirm timidity++
+            fi
+            
+            # Start TiMidity daemon
+            echo -e "${GREEN}Starting TiMidity daemon...${NC}"
+            timidity -iA -Os &>/dev/null &
+            sleep 2
+            
+        else
+            echo -e "${RED}Unsupported Linux distribution. Please install dependencies manually:${NC}"
+            echo -e "  - ${CYAN}GitHub CLI (gh): https://github.com/cli/cli#installation${NC}"
+            echo -e "  - ${CYAN}TiMidity++: Use your distribution's package manager${NC}"
+            exit 1
+        fi
+        
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS installation
+        
+        # Check for Homebrew
+        if ! command -v brew &> /dev/null; then
+            echo -e "${YELLOW}Installing Homebrew...${NC}"
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            
+            # Make sure Homebrew is in PATH
+            if [[ -f /opt/homebrew/bin/brew ]]; then
+                eval "$(/opt/homebrew/bin/brew shellenv)"
+            elif [[ -f /usr/local/bin/brew ]]; then
+                eval "$(/usr/local/bin/brew shellenv)"
+            else
+                echo -e "${RED}Homebrew installed but not found in PATH. Please restart your terminal.${NC}"
+                exit 1
+            fi
+        fi
+        
+        # Install GitHub CLI
+        if ! command -v gh &> /dev/null; then
+            echo -e "${YELLOW}Installing GitHub CLI...${NC}"
+            brew install gh
+        fi
+        
+        # Install TiMidity++
+        if ! command -v timidity &> /dev/null; then
+            echo -e "${YELLOW}Installing TiMidity++...${NC}"
+            brew install timidity
+        fi
+        
+        # Start TiMidity daemon
+        echo -e "${GREEN}Starting TiMidity daemon...${NC}"
+        timidity -iA -Os &>/dev/null &
+        sleep 2
+        
+    elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+        # Windows/Git Bash/MinGW installation
+        echo -e "${RED}Windows detected. Please install dependencies manually:${NC}"
+        echo -e "  - ${CYAN}GitHub CLI (gh): winget install --id GitHub.cli${NC}"
+        echo -e "  - ${CYAN}TiMidity++: https://sourceforge.net/projects/timidity/${NC}"
+        echo -e "${YELLOW}After installing, restart this script.${NC}"
+        exit 1
+    else
+        echo -e "${RED}Unsupported operating system. Please install dependencies manually:${NC}"
+        echo -e "  - ${CYAN}GitHub CLI (gh): https://github.com/cli/cli#installation${NC}"
+        echo -e "  - ${CYAN}TiMidity++: https://timidity.sourceforge.net/${NC}"
+        exit 1
+    fi
+}
+
 # Function to check and install required dependencies
 check_dependencies() {
     echo -e "${YELLOW}Checking for required dependencies...${NC}"
     
+    # Variables to track what needs to be installed
+    NEED_GH=false
+    NEED_TIMIDITY=false
+    
+    # Check for GitHub CLI
+    if ! command -v gh &> /dev/null; then
+        NEED_GH=true
+    fi
+    
     # Check for timidity (MIDI player)
     if ! command -v timidity &> /dev/null; then
-        echo -e "${YELLOW}TiMidity++ (MIDI player) is not installed.${NC}"
-        echo -e "Would you like to install it to enable the epic Top Gun theme? (y/n)"
-        read install_timidity
-        if [[ "$install_timidity" =~ ^[Yy]$ ]]; then
-            if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-                sudo apt-get update && sudo apt-get install -y timidity
-            elif [[ "$OSTYPE" == "darwin"* ]]; then
-                brew install timidity
-            else
-                echo -e "${RED}Unable to automatically install TiMidity++.${NC}"
-                echo -e "${YELLOW}Please install it manually if you want background music.${NC}"
-                PLAY_MUSIC=false
-            fi
-        else
-            PLAY_MUSIC=false
-        fi
+        NEED_TIMIDITY=true
+    fi
+    
+    # Install dependencies if needed
+    if [ "$NEED_GH" = true ] || [ "$NEED_TIMIDITY" = true ]; then
+        echo -e "${YELLOW}Some dependencies are missing. Installing them now...${NC}"
+        auto_install_dependencies
     else
+        # Make sure TiMidity daemon is running
+        echo -e "${GREEN}Initializing Top Gun soundtrack...${NC}"
+        timidity -iA -Os &>/dev/null &
+        sleep 1
+    fi
+    
+    # Verify GitHub CLI is installed and authenticated
+    if ! command -v gh &> /dev/null; then
+        echo -e "${RED}GitHub CLI (gh) installation failed.${NC}"
+        echo -e "${YELLOW}Please install it manually: https://github.com/cli/cli#installation${NC}"
+        exit 1
+    fi
+    
+    # Check if logged in to GitHub CLI
+    if ! gh auth status &> /dev/null; then
+        echo -e "${YELLOW}Authenticating with GitHub...${NC}"
+        echo -e "${CYAN}A browser window will open for you to login to GitHub.${NC}"
+        gh auth login --web
+        
+        # Verify authentication worked
+        if ! gh auth status &> /dev/null; then
+            echo -e "${RED}GitHub CLI authentication failed.${NC}"
+            echo -e "${YELLOW}Please run 'gh auth login' manually.${NC}"
+            exit 1
+        fi
+    fi
+    
+    # Set music flag
+    if command -v timidity &> /dev/null; then
         PLAY_MUSIC=true
+    else
+        echo -e "${RED}TiMidity++ installation failed. Music will not play.${NC}"
+        PLAY_MUSIC=false
     fi
     
     echo -e "${GREEN}Dependency check completed.${NC}"
@@ -68,9 +250,32 @@ play_music() {
             return 1
         fi
         
+        # Test if MIDI file was downloaded properly
+        if [ ! -s "/tmp/$midi_file" ]; then
+            echo -e "${RED}Downloaded MIDI file is empty. Using backup local file...${NC}"
+            # Create a simple local MIDI file if download fails
+            cat > "/tmp/backup.mid" << 'EOF'
+MThd      MTrk    ÿQ ÿX ÿY  À °d ±P ²d ³P ´d µP ¶d ·P À °d ±P ²d ³P >c Ec Jc >c Ec Jc Ac Ec Hc Ac Ec Hc @c Ec Hc @c Ec Hc >c Ec Jc >c Ec Jc Ac Ec Jc Ac Ec Jc Cc Ec Jc ÿ/
+EOF
+            midi_file="backup.mid"
+        fi
+        
         echo -e "${GREEN}Starting Top Gun theme music...${NC}"
-        timidity "/tmp/$midi_file" -Os -iA &
-        MUSIC_PID=$!
+        # Try different TiMidity options for better compatibility
+        if timidity -idq "/tmp/$midi_file" -Os -o /tmp/timidity.output &>/dev/null & then
+            MUSIC_PID=$!
+            echo -e "${GREEN}Music playback started.${NC}"
+        elif timidity "/tmp/$midi_file" -Os -iA &>/dev/null & then
+            MUSIC_PID=$!
+            echo -e "${GREEN}Music playback started (alternate mode).${NC}"
+        elif timidity "/tmp/$midi_file" &>/dev/null & then
+            MUSIC_PID=$!
+            echo -e "${GREEN}Music playback started (basic mode).${NC}"
+        else
+            echo -e "${RED}Failed to play MIDI file. Music will be disabled.${NC}"
+            PLAY_MUSIC=false
+            return 1
+        fi
         
         # Register cleanup function to stop music when script ends
         trap stop_music EXIT INT TERM
@@ -102,12 +307,6 @@ echo -e "${GREEN}[ POWERED BY TOP GUN TECHNOLOGY ]${NC}"
 echo -e "${YELLOW}----------------------------------------------------------------------${NC}"
 echo ""
 
-# Check dependencies and prepare music
-check_dependencies
-if [ "$PLAY_MUSIC" = true ]; then
-    play_music "$TOP_GUN_MIDI"
-fi
-
 # Password protection
 echo -e "${YELLOW}Password required to continue:${NC}"
 read -s AUTH_PASSWORD
@@ -120,6 +319,27 @@ if [ "$AUTH_PASSWORD" != "werds" ]; then
 fi
 
 echo -e "${GREEN}Password accepted. Proceeding...${NC}"
+
+# Check dependencies and prepare music
+check_dependencies
+
+# Try to play music right away if TiMidity is available
+if [ "$PLAY_MUSIC" = true ]; then
+    # Try primary source first
+    if ! play_music "$TOP_GUN_MIDI"; then
+        echo -e "${YELLOW}Trying backup MIDI source...${NC}"
+        if ! play_music "$BACKUP_MIDI_1"; then
+            echo -e "${YELLOW}Trying second backup MIDI source...${NC}"
+            if ! play_music "$BACKUP_MIDI_2"; then
+                echo -e "${RED}All music sources failed. Proceeding without music.${NC}"
+                PLAY_MUSIC=false
+            fi
+        fi
+    fi
+    
+    # Pause briefly to let music start
+    sleep 1
+fi
 
 # Detect current directory and files
 CURRENT_DIR=$(pwd)
@@ -269,9 +489,22 @@ fi
 echo -e "${YELLOW}Adding files to git...${NC}"
 git add .
 
-# Configure git 
-git config --local user.name "$GITHUB_USERNAME"
-git config --local user.email "github@heyfinal.com"
+# Configure git user info (using GitHub CLI to get user info)
+USER_INFO=$(gh api user)
+USER_NAME=$(echo "$USER_INFO" | grep -o '"name": *"[^"]*"' | head -1 | sed 's/"name": *"\(.*\)"/\1/')
+USER_EMAIL=$(gh api user/emails | grep -o '"email": *"[^"]*"' | head -1 | sed 's/"email": *"\(.*\)"/\1/')
+
+if [ -n "$USER_NAME" ]; then
+    git config --local user.name "$USER_NAME"
+else
+    git config --local user.name "heyfinal"
+fi
+
+if [ -n "$USER_EMAIL" ]; then
+    git config --local user.email "$USER_EMAIL"
+else
+    git config --local user.email "github@heyfinal.com"
+fi
 
 # Commit if there are changes
 if git diff --staged --quiet; then
@@ -281,54 +514,32 @@ else
     git commit -m "Initial commit: $REPO_NAME"
 fi
 
-# Create a GitHub repository using the GitHub API with basic auth
+# Create a GitHub repository using GitHub CLI
 echo -e "${YELLOW}Creating GitHub repository: $REPO_NAME${NC}"
 
 # Check if repository already exists
-REPO_CHECK=$(curl -s -o /dev/null -w "%{http_code}" -u "$GITHUB_USERNAME:$GITHUB_PASSWORD" \
-  "https://api.github.com/repos/$GITHUB_USERNAME/$REPO_NAME")
-
-if [ "$REPO_CHECK" = "200" ]; then
+if gh repo view "heyfinal/$REPO_NAME" &> /dev/null; then
     echo -e "${YELLOW}Repository already exists. Using existing repository.${NC}"
 else
     # Create the repository
-    REPO_CREATE_RESPONSE=$(curl -s -u "$GITHUB_USERNAME:$GITHUB_PASSWORD" -X POST \
-      -H "Accept: application/vnd.github.v3+json" \
-      https://api.github.com/user/repos \
-      -d "{\"name\":\"$REPO_NAME\",\"description\":\"$REPO_DESC\",\"private\":false}")
-
-    # Check if repo creation was successful
-    if [[ "$REPO_CREATE_RESPONSE" == *"Bad credentials"* ]]; then
-        echo -e "${RED}Authentication failed. Check your GitHub username and password.${NC}"
-        exit 1
-    elif [[ "$REPO_CREATE_RESPONSE" != *"html_url"* ]]; then
-        echo -e "${RED}Failed to create repository. Error: $REPO_CREATE_RESPONSE${NC}"
+    if ! gh repo create "$REPO_NAME" --public --description "$REPO_DESC" --source=. --remote=origin; then
+        echo -e "${RED}Failed to create repository. Please check your GitHub CLI authentication.${NC}"
+        echo -e "${YELLOW}Run 'gh auth login' to re-authenticate.${NC}"
         exit 1
     else
         echo -e "${GREEN}Repository created successfully.${NC}"
     fi
 fi
 
-# Set the remote URL
-git remote add origin "https://$GITHUB_USERNAME:$GITHUB_PASSWORD@github.com/$GITHUB_USERNAME/$REPO_NAME.git"
-
 # Push the repository
 echo -e "${YELLOW}Pushing to GitHub...${NC}"
-if ! git push -u origin master 2>/dev/null; then
-    echo -e "${YELLOW}Trying default branch 'main' instead...${NC}"
-    if ! git push -u origin main 2>/dev/null; then
-        echo -e "${RED}Failed to push to GitHub.${NC}"
-        echo -e "${YELLOW}Pushing to a new branch 'main'...${NC}"
-        git checkout -b main
-        if ! git push -u origin main; then
-            echo -e "${RED}Failed to push to GitHub. Please check your connection and credentials.${NC}"
-            exit 1
-        fi
-    fi
+if ! git push -u origin HEAD; then
+    echo -e "${RED}Failed to push to GitHub. Please check your connection and authentication.${NC}"
+    exit 1
 fi
 
 echo -e "${GREEN}Successfully pushed to GitHub repository!${NC}"
-echo -e "${YELLOW}Repository URL: ${NC}https://github.com/$GITHUB_USERNAME/$REPO_NAME"
+echo -e "${YELLOW}Repository URL: ${NC}https://github.com/heyfinal/$REPO_NAME"
 
 # Check if this is a script that could be installed via curl | bash
 SCRIPT_FILES=$(find . -maxdepth 1 -name "*.sh" -type f)
@@ -341,7 +552,7 @@ if [ -n "$SCRIPT_FILES" ]; then
     read GENERATE_ONELINER
     
     if [[ "$GENERATE_ONELINER" =~ ^[Yy]$ ]]; then
-        ONELINER="curl -sSL https://raw.githubusercontent.com/$GITHUB_USERNAME/$REPO_NAME/main/$MAIN_SCRIPT | bash"
+        ONELINER="curl -sSL https://raw.githubusercontent.com/heyfinal/$REPO_NAME/main/$MAIN_SCRIPT | bash"
         echo -e "${GREEN}Installation one-liner:${NC}"
         echo -e "${CYAN}$ONELINER${NC}"
         
@@ -369,10 +580,10 @@ if [ -n "$SCRIPT_FILES" ]; then
     fi
 fi
 
-echo -e "${GREEN}=== Repository Setup Complete! ===${NC}"
-echo -e "Your repository is now available at: ${CYAN}https://github.com/$GITHUB_USERNAME/$REPO_NAME${NC}"
-
 # Stop music if it's playing 
 stop_music
+
+echo -e "${GREEN}=== Repository Setup Complete! ===${NC}"
+echo -e "Your repository is now available at: ${CYAN}https://github.com/heyfinal/$REPO_NAME${NC}"
 
 echo -e "${MAGENTA}Thank you for using UGRC!${NC}"
